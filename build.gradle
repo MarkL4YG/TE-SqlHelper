@@ -1,0 +1,19 @@
+repositories {
+    mavenCentral()
+    maven {
+        name = 'sponge'
+        url = 'http://repo.spongepowered.org/maven'
+    }
+}
+
+apply plugin: 'java'
+
+dependencies {
+    compile 'org.spongepowered:spongeapi:7.0.0'
+}
+
+jar {
+    baseName="TotalEconomy-SqlHelper"
+    version="0.1.0"
+    classifier="TE1.8.1"
+}
