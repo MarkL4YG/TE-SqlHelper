@@ -76,15 +76,25 @@ public class ImportWorker extends AbstractWorker {
     private void setupConfiguration() {
         sendStatus("Reading TE configuration...");
 
+        File mainConfFile = new File(totalEconomyDir, "totaleconomy.conf");
+        logger.debug("Main configuration: " + mainConfFile.getPath());
+
+        File accountsFile = new File(totalEconomyDir, "accounts.conf");
+        logger.debug("Accounts: " + accountsFile.getPath());
+
+        File jobsFile = new File(totalEconomyDir, "jobs.conf");
+        logger.debug("Jobs: " + jobsFile.getPath());
+
+
         try {
             HoconConfigurationLoader mainLoader = HoconConfigurationLoader.builder()
-                                                                          .setFile(new File(totalEconomyDir, "totaleconomy.conf"))
+                                                                          .setFile(mainConfFile)
                                                                           .build();
             HoconConfigurationLoader accountsLoader = HoconConfigurationLoader.builder()
-                                                                              .setFile(new File(totalEconomyDir, "accounts.conf"))
+                                                                              .setFile(accountsFile)
                                                                               .build();
             HoconConfigurationLoader jobsLoader = HoconConfigurationLoader.builder()
-                                                                          .setFile(new File(totalEconomyDir, "jobs.conf"))
+                                                                          .setFile(jobsFile)
                                                                           .build();
             mainConfig = mainLoader.load();
             accountsConfig = accountsLoader.load();
@@ -137,7 +147,10 @@ public class ImportWorker extends AbstractWorker {
                     .stream()
                     .filter(e -> ((String) e.getKey()).endsWith("-balance"))
                     .filter(e -> !currencies.contains(e.getKey()))
-                    .forEach(e -> currencies.add(((String) e.getKey())));
+                    .forEach(e -> {
+                        logger.debug("Currency: " + e.getKey());
+                        currencies.add(((String) e.getKey()));
+                    });
             }
         });
 
@@ -178,6 +191,7 @@ public class ImportWorker extends AbstractWorker {
             builder.append("`job_notifications` TINYINT(3)\n");
             builder.append(")");
 
+            logger.debug("WILL RUN SQL: \n" + builder.toString());
             statement.addBatch(builder.toString());
 
             // VIRTUAL_ACCOUNTS
@@ -190,6 +204,7 @@ public class ImportWorker extends AbstractWorker {
             builder.append("`uid` VARCHAR(60)\n");
             builder.append(")");
 
+            logger.debug("WILL RUN SQL: \n" + builder.toString());
             statement.addBatch(builder.toString());
 
             // EXPERIENCE
@@ -202,6 +217,7 @@ public class ImportWorker extends AbstractWorker {
             builder.append("FOREIGN KEY (`uid`) REFERENCES accounts(`uid`)\n");
             builder.append(")");
 
+            logger.debug("WILL RUN SQL: \n" + builder.toString());
             statement.addBatch(builder.toString());
 
             // LEVELS
@@ -214,8 +230,10 @@ public class ImportWorker extends AbstractWorker {
             builder.append("FOREIGN KEY (`uid`) REFERENCES accounts(`uid`)\n");
             builder.append(")");
 
+            logger.debug("WILL RUN SQL: \n" + builder.toString());
             statement.addBatch(builder.toString());
 
+            logger.debug("Executing...");
             statement.executeBatch();
 
         } catch (SQLException e) {
@@ -246,8 +264,11 @@ public class ImportWorker extends AbstractWorker {
                     .filter(entry -> entry.getValue().hasMapChildren())
                     .forEach(entry -> {
                         try {
-                            accountStatement.addBatch(importAccountStatement(entry));
-                            logger.debug("Import: " + entry.getKey());
+                            String statement = importAccountStatement(entry);
+                            logger.debug("WILL RUN SQL: \n" + statement);
+                            accountStatement.addBatch(statement);
+                            logger.info("Import: " + entry.getKey());
+
                         } catch (SQLException e) {
                             failures.incrementAndGet();
                             logger.warn("Failed to import: " + entry.getKey(), e);
@@ -265,6 +286,7 @@ public class ImportWorker extends AbstractWorker {
                         try {
                             String query = importExpStatement(entry);
                             if (query != null) {
+                                logger.debug("WILL RUN SQL: \n" + query);
                                 expStatement.addBatch(query);
                                 logger.debug("Import: " + entry.getKey());
                             }
@@ -284,6 +306,7 @@ public class ImportWorker extends AbstractWorker {
                         try {
                             String query = importLevelStatement(entry);
                             if (query != null) {
+                                logger.debug("WILL RUN SQL: \n" + query);
                                 levelStatement.addBatch(query);
                                 logger.debug("Import: " + entry.getKey());
                             }
